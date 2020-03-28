@@ -1,54 +1,59 @@
-// EasyHostDlg.h : 头文件
 #pragma once
 #include "afxwin.h"
 #include "afxext.h"
 
-// CEasyHostDlg 对话框
 class CMainDlg : public CDialog
 {
-// 构造
 public:
-	CMainDlg(CWnd* pParent = NULL);	// 标准构造函数
+	CMainDlg(CWnd* pParent = NULL);
 	enum { IDD = IDD_MAIN };
-
-protected:
-
+	DECLARE_MESSAGE_MAP()
 
 private:
-	HICON m_hIcon;
-	CEdit m_edit1;
-	CListCtrl m_list1;
-	CStatusBar m_status;
-	CHAR *m_text_buffer;
-	RECT m_client_rect;
-	INT m_cur_apply;
-	INT m_cur_edit;
-	BOOL m_edit_changed;
+	HICON          m_hIcon;
+	CEdit          m_edit1;
+	CListCtrl      m_list1;
+	CStatusBar     m_status;
+	NOTIFYICONDATA m_nid;
 
-public:
+private:
+	CHAR *m_text_buffer;
+	RECT  m_client_rect;
+	INT   m_edit_index;
+	BOOL  m_edit_changed;
+
+private:
+	void CreateTrayIcon();
+	void DeleteTrayIcon();
 	void InitStatusBar();
 	void InitProfile();
 	void LoadProfile();
-	BOOL UpdateProfile(int index);
 	int  CreateProfile(LPCTSTR name);
 	BOOL DeleteProfile(int index);
-	void DisplayProfile(int index);
+	BOOL SaveProfile(int index);
+	BOOL EditProfile(int index);
 	BOOL ApplyProfile();
 
-public:
-	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
+protected:
+	virtual void DoDataExchange(CDataExchange* pDX);
 	virtual BOOL OnInitDialog();
 	virtual void OnOK();
-	DECLARE_MESSAGE_MAP()
+	virtual void OnCancel();
+	virtual void PostNcDestroy();
 	afx_msg void OnCommandNew();
 	afx_msg void OnCommandLoad();
 	afx_msg void OnCommandRename();
 	afx_msg void OnCommandDelete();
+	afx_msg void OnCommandShow();
+	afx_msg void OnCommandExit();
+	afx_msg void OnCommandHelp();
 	afx_msg void OnSize(UINT nType, int cx, int cy);
 	afx_msg void OnGetMinMaxInfo(MINMAXINFO* lpMMI);
+	afx_msg void OnNMClickStatus(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMDblclkList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnNMRclickList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnLvnItemChangedList1(NMHDR *pNMHDR, LRESULT *pResult);
 	afx_msg void OnEnChangeEdit1();
 	afx_msg void OnEnKillfocusEdit1();
+	afx_msg LRESULT OnNotifyIcon(WPARAM wParam, LPARAM lParam);
 };

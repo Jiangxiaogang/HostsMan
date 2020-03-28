@@ -16,12 +16,10 @@ class CMainApp : public CWinApp
 {
 public:
 	CMainApp();
-
-private:
 	void InitContex();
 	virtual BOOL InitInstance();
-	DECLARE_MESSAGE_MAP()
 	afx_msg void OnHelp();
+	DECLARE_MESSAGE_MAP()
 };
 
 extern CMainApp theApp;

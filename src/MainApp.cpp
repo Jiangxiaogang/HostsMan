@@ -1,6 +1,3 @@
-// EasyHost.cpp : 定义应用程序的类行为。
-//
-
 #include "stdafx.h"
 #include "MainApp.h"
 #include "MainDlg.h"
@@ -9,25 +6,17 @@
 #define new DEBUG_NEW
 #endif
 
-
-// CEasyHostApp
 BEGIN_MESSAGE_MAP(CMainApp, CWinApp)
 	ON_COMMAND(ID_HELP, OnHelp)
 END_MESSAGE_MAP()
 
-
-// CEasyHostApp 构造
 CMainApp::CMainApp()
 {
-	// TODO: 在此处添加构造代码，
-	// 将所有重要的初始化放置在 InitInstance 中
+
 }
 
-// 唯一的一个 CEasyHostApp 对象
 CMainApp theApp;
 
-
-// CEasyHostApp 初始化
 BOOL CMainApp::InitInstance()
 {
 	CWinApp::InitInstance();
@@ -54,5 +43,5 @@ void CMainApp::InitContex()
 
 void CMainApp::OnHelp()
 {
-
+	ShellExecute(NULL, "open", "https://gitee.com/kerndev/HostsMan", NULL, NULL, SW_NORMAL);
 }

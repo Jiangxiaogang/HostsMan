@@ -1,5 +1,19 @@
 #include "StdAfx.h"
-#include "DialogUtil.h"
+#include "DialogHelper.h"
+
+void EnableDlgItem(HWND hWnd, int nItem, BOOL enable)
+{
+	HWND hItem;
+	hItem = GetDlgItem(hWnd,nItem);
+	EnableWindow(hItem, enable);
+}
+
+void ShowDlgItem(HWND hWnd, int nItem, BOOL show)
+{
+	HWND hItem;
+	hItem = GetDlgItem(hWnd,nItem);
+	ShowWindow(hItem, show ? SW_SHOW : SW_HIDE);
+}
 
 void MoveDlgItem(HWND hWnd,int nItem, int dx, int dy, UINT nFlag)
 {

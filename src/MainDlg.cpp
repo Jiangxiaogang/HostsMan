@@ -1,25 +1,38 @@
-// EasyHostDlg.cpp : 实现文件
-//
-
 #include "stdafx.h"
 #include "HostsFile.h"
 #include "MainApp.h"
 #include "MainDlg.h"
 #include "InputDlg.h"
-#include "DialogUtil.h"
+#include "DialogHelper.h"
 
 #ifdef _DEBUG
 #define new DEBUG_NEW
 #endif
 
-// CEasyHostDlg 对话框
-CMainDlg::CMainDlg(CWnd* pParent /*=NULL*/)
-	: CDialog(CMainDlg::IDD, pParent)
+#define WM_NOTIFYICON (WM_USER + 1)
+
+CMainDlg::CMainDlg(CWnd* pParent)
+: CDialog(CMainDlg::IDD, pParent)
 {
-	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
-	m_cur_edit = 0;
-	m_cur_apply = 0;
 	m_edit_changed = FALSE;
+	m_edit_index   = 0;
+}
+
+void CMainDlg::CreateTrayIcon()
+{
+	memset(&m_nid, 0, sizeof(m_nid));
+	m_nid.cbSize = sizeof(m_nid);
+	m_nid.uFlags = NIF_ICON | NIF_TIP | NIF_MESSAGE;
+	m_nid.hWnd = GetSafeHwnd();
+	m_nid.uCallbackMessage = WM_NOTIFYICON;
+	m_nid.hIcon = m_hIcon;
+	strcpy(m_nid.szTip, "HostsMan");
+	Shell_NotifyIcon(NIM_ADD, &m_nid);
+}
+
+void CMainDlg::DeleteTrayIcon()
+{
+	Shell_NotifyIcon(NIM_DELETE, &m_nid);
 }
 
 void CMainDlg::DoDataExchange(CDataExchange* pDX)
@@ -75,7 +88,7 @@ int  CMainDlg::CreateProfile(LPCTSTR name)
 //删除配置
 BOOL CMainDlg::DeleteProfile(int index)
 {
-	CHAR  name[APP_MAX_PATH];
+	CHAR name[APP_MAX_PATH];
 	m_list1.GetItemText(index, 0, name, APP_MAX_PATH);
 	TRACE("DeleteProfile: index=%d, name=%s\n", index, name);
 	if(DeleteAppHosts(name))
@@ -86,29 +99,28 @@ BOOL CMainDlg::DeleteProfile(int index)
 	return FALSE;
 }
 
-//展示配置
-void CMainDlg::DisplayProfile(int index)
+//编辑配置
+BOOL CMainDlg::EditProfile(int index)
 {
 	CHAR  name[APP_MAX_PATH];
 	UINT  size;
 	m_list1.GetItemText(index, 0, name, APP_MAX_PATH);
 	size = GetAppHosts(name, m_text_buffer, APP_MAX_FILE_SIZE);
 	SetDlgItemText(IDC_EDIT1, m_text_buffer);
-	TRACE("DisplayProfile: index=%d, name=%s\n", index, name);
+	TRACE("EditProfile: index=%d, name=%s\n", index, name);
+	return TRUE;
 }
 
 //修改配置
-BOOL CMainDlg::UpdateProfile(int index)
+BOOL CMainDlg::SaveProfile(int index)
 {
 	TCHAR   name[APP_MAX_PATH];
 	CString text;
-
 	m_list1.GetItemText(index, 0, name, MAX_PATH);
 	m_edit1.GetWindowText(text);
-	TRACE("UpdateProfile: index=%d, name=%s\n", index, name);
+	TRACE("SaveProfile: index=%d, name=%s\n", index, name);
 	return SetAppHosts(name, text, text.GetLength());
 }
-
 
 //应用配置
 BOOL CMainDlg::ApplyProfile(void)
@@ -135,15 +147,22 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialog)
 	//}}AFX_MSG_MAP
 	ON_WM_SIZE()
 	ON_WM_GETMINMAXINFO()
+	ON_WM_CONTEXTMENU()
+	ON_MESSAGE(WM_NOTIFYICON, &CMainDlg::OnNotifyIcon)
 	ON_COMMAND(IDM_NEW, &CMainDlg::OnCommandNew)
 	ON_COMMAND(IDM_LOAD, &CMainDlg::OnCommandLoad)
 	ON_COMMAND(IDM_RENAME, &CMainDlg::OnCommandRename)
 	ON_COMMAND(IDM_DELETE, &CMainDlg::OnCommandDelete)
+	ON_COMMAND(IDM_SHOW, &CMainDlg::OnCommandShow)
+	ON_COMMAND(IDM_EXIT, &CMainDlg::OnCommandExit)
+	ON_COMMAND(IDM_HELP, &CMainDlg::OnCommandHelp)
+	ON_NOTIFY(NM_CLICK, IDC_STATUS, &CMainDlg::OnNMClickStatus)
 	ON_NOTIFY(NM_DBLCLK, IDC_LIST1, &CMainDlg::OnNMDblclkList1)
 	ON_NOTIFY(NM_RCLICK, IDC_LIST1, &CMainDlg::OnNMRclickList1)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST1, &CMainDlg::OnLvnItemChangedList1)
 	ON_EN_CHANGE(IDC_EDIT1, &CMainDlg::OnEnChangeEdit1)
 	ON_EN_KILLFOCUS(IDC_EDIT1, &CMainDlg::OnEnKillfocusEdit1)
+
 END_MESSAGE_MAP()
 
 void CMainDlg::InitStatusBar()
@@ -151,33 +170,71 @@ void CMainDlg::InitStatusBar()
 	UINT table[8]={0};
 	m_status.SetIndicators(table, 3);
 	m_status.SetPaneInfo(0, 0,  SBPS_NORMAL, 100);
-	m_status.SetPaneInfo(1, 0,  SBPS_NORMAL, 100);
+	m_status.SetPaneInfo(1, 0,  SBPS_NORMAL, 400);
 	m_status.SetPaneInfo(2, 0,  SBPS_STRETCH, 0);
 	m_status.SetPaneText(0, _T("版本:V1.0.0"));
-	m_status.SetPaneText(1, _T("作者:星沉地动"));
+	m_status.SetPaneText(1, _T("源码:https://gitee.com/kerndev/HostsMan"));
 }
 
-// CEasyHostDlg 消息处理程序
+void CMainDlg::OnOK()
+{
+}
+
+void CMainDlg::OnCancel()
+{
+	ShowWindow(SW_HIDE);
+}
+
+void CMainDlg::PostNcDestroy()
+{
+	DeleteTrayIcon();
+	free(m_text_buffer);
+	CDialog::PostNcDestroy();
+}
+
 BOOL CMainDlg::OnInitDialog()
 {
+	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 	m_text_buffer = (CHAR *)malloc(APP_MAX_FILE_SIZE);
 	CDialog::OnInitDialog();
 	
-	SetIcon(m_hIcon, TRUE);			// 设置大图标
+	SetIcon(m_hIcon, TRUE);
 	GetClientRect(&m_client_rect);
 
 	RECT rc;
 	m_list1.GetClientRect(&rc);
 	m_list1.SetExtendedStyle(LVS_EX_FULLROWSELECT|LVS_EX_GRIDLINES|LVS_EX_CHECKBOXES);
 	m_list1.InsertColumn(1, _T("配置名称"), LVCFMT_LEFT, rc.right);
-	m_edit1.SetLimitText(65536);
+	m_edit1.SetLimitText(APP_MAX_FILE_SIZE);
 
+	CreateTrayIcon();
 	InitStatusBar();
 	InitProfile();
 	LoadProfile();
-	m_list1.SetSelectedColumn(0);
-	DisplayProfile(0);
-	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
+	EditProfile(0);
+	return TRUE; 
+}
+
+//托盘消息
+LRESULT CMainDlg::OnNotifyIcon(WPARAM wParam, LPARAM lParam)
+{
+	POINT pt;
+	CMenu menu;
+	CMenu *sub_menu;
+	if(lParam == WM_LBUTTONDOWN)
+	{
+		ShowWindow(SW_SHOW);
+		return 0;
+	}
+	if(lParam == WM_RBUTTONDOWN)
+	{
+		GetCursorPos(&pt);
+		menu.LoadMenu(IDR_MENU);
+		sub_menu = menu.GetSubMenu(1);
+		sub_menu->TrackPopupMenu(TPM_LEFTALIGN, pt.x, pt.y, this);
+		return 0;
+	}
+	return 0;
 }
 
 void CMainDlg::OnSize(UINT nType, int cx, int cy)
@@ -213,27 +270,37 @@ void CMainDlg::OnLvnItemChangedList1(NMHDR *pNMHDR, LRESULT *pResult)
 	//勾选复选框
 	if((pNMLV->uOldState & INDEXTOSTATEIMAGEMASK(1)) && (pNMLV->uNewState & INDEXTOSTATEIMAGEMASK(2)))
 	{ 
-		TRACE("Item %d is checked\n", pNMLV->iItem);
 		ApplyProfile();
 	}
 
 	//取消复选框
 	if((pNMLV->uOldState & INDEXTOSTATEIMAGEMASK(2)) && (pNMLV->uNewState & INDEXTOSTATEIMAGEMASK(1))) 
 	{ 
-		TRACE("Item %d is unchecked\n", pNMLV->iItem);
 		ApplyProfile();
 	}
 
 	//变更高亮行
 	if(!(pNMLV->uOldState & LVIS_SELECTED) && (pNMLV->uNewState & LVIS_SELECTED)) 
 	{ 
-		TRACE("Item %d is selected\n", pNMLV->iItem); 
-		DisplayProfile(pNMLV->iItem);
+		if(m_edit_changed)
+		{
+			m_edit_changed = FALSE;
+			SaveProfile(m_edit_index);
+		}
+		m_edit_index = pNMLV->iItem;
+		EditProfile(pNMLV->iItem);
 	}
 	*pResult = 0;
 }
 
-//鼠标左键双击事件
+//鼠标左键单击状态栏
+void CMainDlg::OnNMClickStatus(NMHDR *pNMHDR, LRESULT *pResult)
+{
+	theApp.OnHelp();
+	*pResult = 0;
+}
+
+//鼠标左键双击列表
 void CMainDlg::OnNMDblclkList1(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	int   id;
@@ -249,7 +316,7 @@ void CMainDlg::OnNMDblclkList1(NMHDR *pNMHDR, LRESULT *pResult)
 }
 
 
-//鼠标右键单击事件
+//鼠标右键单击列表
 void CMainDlg::OnNMRclickList1(NMHDR *pNMHDR, LRESULT *pResult)
 {
 	int   id;
@@ -273,13 +340,32 @@ void CMainDlg::OnNMRclickList1(NMHDR *pNMHDR, LRESULT *pResult)
 	*pResult = 0;
 }
 
+//EDIT文本更新
+void CMainDlg::OnEnChangeEdit1()
+{
+	m_edit_changed = TRUE;
+}
+
+//EDIT丢失焦点
+void CMainDlg::OnEnKillfocusEdit1()
+{
+	if(m_edit_changed)
+	{
+		m_edit_changed = FALSE;
+		if(!SaveProfile(m_edit_index))
+		{
+			MessageBox(_T("保存配置失败！请检查配置文件是否被占用！"), _T("操作失败"), MB_ICONWARNING);
+		}
+	}
+}
+
 //新建
 void CMainDlg::OnCommandNew()
 {
 	int index;
 	CInputDlg dlg;
-	dlg.SetTitle(_T("新建配置文件"));
-	dlg.SetInput(_T("新建配置文件"));
+	dlg.m_title = "新建配置文件";
+	dlg.m_input = "新建配置文件";
 	if(dlg.DoModal() == IDOK)
 	{
 		index = CreateProfile(dlg.m_input);
@@ -289,7 +375,8 @@ void CMainDlg::OnCommandNew()
 		}
 		else
 		{
-			DisplayProfile(index);
+			m_edit_index = index;
+			EditProfile(index);
 		}
 	}
 }
@@ -313,8 +400,8 @@ void CMainDlg::OnCommandRename()
 	if(index >= 0)
 	{
 		m_list1.GetItemText(index, 0, name, MAX_PATH);
-		dlg.SetTitle(_T("重命名"));
-		dlg.SetInput(name);
+		dlg.m_title = "重命名";
+		dlg.m_input = name;
 		dlg.DoModal();
 		if(RenameAppHosts(name, dlg.m_input))
 		{
@@ -332,8 +419,12 @@ void CMainDlg::OnCommandDelete()
 {
 	int  ret;
 	int  index;
-	char name[MAX_PATH];
 	index = m_list1.GetSelectionMark();
+	if(m_edit_index == index)
+	{
+		MessageBox(_T("您无法删除正在编辑的配置！"), _T("操作无效"), MB_ICONWARNING);
+		return;
+	}
 	if(index >= 0)
 	{
 		ret = MessageBox(_T("您确定要删除这个配置文件吗？"), _T("确认删除"), MB_ICONQUESTION|MB_OKCANCEL);
@@ -341,43 +432,28 @@ void CMainDlg::OnCommandDelete()
 		{
 			return;
 		}
-		m_list1.GetItemText(index, 0, name, MAX_PATH);
-		if(DeleteAppHosts(name))
-		{
-			m_list1.DeleteItem(index);
-			if(m_cur_edit == index)
-			{
-				m_list1.SetSelectionMark(0);
-			}
-		}
-		else
+		if(!DeleteProfile(index))
 		{
 			MessageBox(_T("删除配置失败！请检查配置文件是否被占用！"), _T("操作失败"), MB_ICONWARNING);
+			return;
 		}
 	}
 }
 
-//文本更新
-void CMainDlg::OnEnChangeEdit1()
+//显示
+void CMainDlg::OnCommandShow()
 {
-	m_edit_changed = TRUE;
-	OutputDebugString("Edit\n");
+	ShowWindow(SW_SHOW);
 }
 
-void CMainDlg::OnEnKillfocusEdit1()
+//退出
+void CMainDlg::OnCommandExit()
 {
-	int index;
-	if(m_edit_changed)
-	{
-		m_edit_changed = FALSE;
-		index = m_list1.GetSelectionMark();
-		if(!UpdateProfile(index))
-		{
-			MessageBox(_T("更新配置失败！请检查配置文件是否被占用！"), _T("操作失败"), MB_ICONWARNING);
-		}
-	}
+	EndDialog(IDOK);
 }
 
-void CMainDlg::OnOK()
+//帮助
+void CMainDlg::OnCommandHelp()
 {
+	theApp.OnHelp();
 }

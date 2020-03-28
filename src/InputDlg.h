@@ -1,18 +1,13 @@
 #pragma once
 
-
-// CNewDialog 对话框
-
 class CInputDlg : public CDialog
 {
 	DECLARE_DYNAMIC(CInputDlg)
+	DECLARE_MESSAGE_MAP()
 
 public:
-	CInputDlg(CWnd* pParent = NULL);   // 标准构造函数
-	virtual ~CInputDlg();
-	void SetInput(LPCTSTR text);
-	void SetTitle(LPCTSTR text);
-	enum { IDD = IDD_NEW };
+	CInputDlg(CWnd* pParent = NULL); 
+	enum { IDD = IDD_INPUT };
 
 public:
 	CString m_title;
@@ -20,7 +15,6 @@ public:
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);    // DDX/DDV 支持
-	DECLARE_MESSAGE_MAP()
 	virtual void OnOK();
 	virtual BOOL OnInitDialog();
 };

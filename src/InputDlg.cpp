@@ -1,9 +1,7 @@
-// NewDialog.cpp : 实现文件
 #include "stdafx.h"
 #include "MainApp.h"
 #include "InputDlg.h"
 
-// CNewDialog 对话框
 IMPLEMENT_DYNAMIC(CInputDlg, CDialog)
 
 CInputDlg::CInputDlg(CWnd* pParent /*=NULL*/)
@@ -12,23 +10,9 @@ CInputDlg::CInputDlg(CWnd* pParent /*=NULL*/)
 
 }
 
-CInputDlg::~CInputDlg()
-{
-}
-
 void CInputDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialog::DoDataExchange(pDX);
-}
-
-void CInputDlg::SetTitle(LPCTSTR text)
-{
-	m_title = text;
-}
-
-void CInputDlg::SetInput(LPCTSTR text)
-{
-	m_input = text;
 }
 
 BEGIN_MESSAGE_MAP(CInputDlg, CDialog)
@@ -37,17 +21,20 @@ END_MESSAGE_MAP()
 void CInputDlg::OnOK()
 {
 	int ret;
+	LPCH exclude="\\/:*?\"<>|";
 	GetDlgItemText(IDC_EDIT1, m_input);
-	ret = m_input.FindOneOf("/*^=\\");
+	ret = m_input.FindOneOf(exclude);
 	if(ret >= 0)
 	{
-		MessageBox(_T("名称内不能包含特殊符号！"), _T("名称无效"));
+		CString text;
+		text.Format("不能包含下列特殊符号！\r\n\\/:*?\"<>|");
+		MessageBox(text, "无效输入", MB_ICONINFORMATION);
 		return;
 	}
 	ret = m_input.GetLength();
 	if(ret == 0)
 	{
-		MessageBox(_T("请输入配置名称！"), _T("名称无效"));
+		MessageBox("请输入配置名称！", "无效输入", MB_ICONINFORMATION);
 		return;
 	}
 	CDialog::OnOK();
