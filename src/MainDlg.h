@@ -33,6 +33,7 @@ private:
 	BOOL SaveProfile(int index);
 	BOOL EditProfile(int index);
 	BOOL ApplyProfile();
+	BOOL RealTimeSaveProfile();
 
 protected:
 	virtual void DoDataExchange(CDataExchange* pDX);

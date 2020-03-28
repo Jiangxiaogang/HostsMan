@@ -56,7 +56,7 @@ BOOL CreateAppHosts(LPCTSTR name)
 	{
 		return FALSE;
 	}
-	return SetHostsFileText(path, "#\r\n", 3);
+	return SetHostsFileText(path, "#", 1);
 }
 
 BOOL DeleteAppHosts(LPCTSTR name)

@@ -48,14 +48,7 @@ static void EnumProfileProc(LPCTSTR name, LPVOID arg)
 	int count;
 	CListCtrl *list;
 	list = (CListCtrl *)arg;
-	if(strcmp(name, "系统默认") == 0)
-	{
-		count = 0;
-	}
-	else
-	{
-		count = list->GetItemCount();
-	}
+	count = list->GetItemCount();
 	list->InsertItem(0, name);
 }
 
@@ -68,8 +61,11 @@ void CMainDlg::LoadProfile()
 void CMainDlg::InitProfile()
 {
 	UINT  size;
-	size = GetSysHosts(m_text_buffer, APP_MAX_FILE_SIZE);
-	SetAppHosts("系统默认", m_text_buffer, size);
+	if(CreateAppHosts("默认配置"))
+	{
+		size = GetSysHosts(m_text_buffer, APP_MAX_FILE_SIZE);
+		SetAppHosts("默认配置", m_text_buffer, size);
+	}
 }
 
 //新建配置
@@ -99,14 +95,66 @@ BOOL CMainDlg::DeleteProfile(int index)
 	return FALSE;
 }
 
+static char *FindCRLF(char *input)
+{
+	char ch;
+	for(ch = *input; ch != 0; input++)
+	{
+		ch = *input;
+		if(ch == 0x0D)
+		{
+			return input;
+		}
+		if(ch == 0x0A)
+		{
+			return input;
+		}
+	}
+	return NULL;
+}
+
+static char *SkipNextLF(char *input)
+{
+	char ch;
+	ch = *(input + 1);
+	if(ch == 0x0A)
+	{
+		return input + 2;	
+	}
+	return input + 1;
+}
+
+//格式化换行符
+static void FormatLineCRLF(CString &output, char *input)
+{
+	char *line;
+	char *temp;
+	line = input;
+	while(*line)
+	{
+		temp = FindCRLF(line);
+		if(temp == NULL)
+		{
+			output.Append(line);
+			return;
+		}
+		*temp = 0;
+		output.Append(line);
+		output.Append("\r\n");
+		line = SkipNextLF(temp);
+	}
+}
+
 //编辑配置
 BOOL CMainDlg::EditProfile(int index)
 {
 	CHAR  name[APP_MAX_PATH];
 	UINT  size;
+	CString text;
 	m_list1.GetItemText(index, 0, name, APP_MAX_PATH);
 	size = GetAppHosts(name, m_text_buffer, APP_MAX_FILE_SIZE);
-	SetDlgItemText(IDC_EDIT1, m_text_buffer);
+	FormatLineCRLF(text, m_text_buffer);
+	m_edit1.SetWindowText(text);
 	TRACE("EditProfile: index=%d, name=%s\n", index, name);
 	return TRUE;
 }
@@ -143,6 +191,25 @@ BOOL CMainDlg::ApplyProfile(void)
 	return TRUE;
 }
 
+//实时保存配置
+BOOL CMainDlg::RealTimeSaveProfile(void)
+{
+	if(m_edit_changed)
+	{
+		m_edit_changed = FALSE;
+		if(!SaveProfile(m_edit_index))
+		{
+			MessageBox(_T("保存配置失败！请检查配置文件是否被占用！"), _T("操作失败"), MB_ICONWARNING);
+			return FALSE;
+		}
+		if(m_list1.GetCheck(m_edit_index))
+		{
+			ApplyProfile();
+		}
+	}
+	return TRUE;
+}
+
 BEGIN_MESSAGE_MAP(CMainDlg, CDialog)
 	//}}AFX_MSG_MAP
 	ON_WM_SIZE()
@@ -162,7 +229,6 @@ BEGIN_MESSAGE_MAP(CMainDlg, CDialog)
 	ON_NOTIFY(LVN_ITEMCHANGED, IDC_LIST1, &CMainDlg::OnLvnItemChangedList1)
 	ON_EN_CHANGE(IDC_EDIT1, &CMainDlg::OnEnChangeEdit1)
 	ON_EN_KILLFOCUS(IDC_EDIT1, &CMainDlg::OnEnKillfocusEdit1)
-
 END_MESSAGE_MAP()
 
 void CMainDlg::InitStatusBar()
@@ -282,11 +348,7 @@ void CMainDlg::OnLvnItemChangedList1(NMHDR *pNMHDR, LRESULT *pResult)
 	//变更高亮行
 	if(!(pNMLV->uOldState & LVIS_SELECTED) && (pNMLV->uNewState & LVIS_SELECTED)) 
 	{ 
-		if(m_edit_changed)
-		{
-			m_edit_changed = FALSE;
-			SaveProfile(m_edit_index);
-		}
+		RealTimeSaveProfile();
 		m_edit_index = pNMLV->iItem;
 		EditProfile(pNMLV->iItem);
 	}
@@ -349,14 +411,7 @@ void CMainDlg::OnEnChangeEdit1()
 //EDIT丢失焦点
 void CMainDlg::OnEnKillfocusEdit1()
 {
-	if(m_edit_changed)
-	{
-		m_edit_changed = FALSE;
-		if(!SaveProfile(m_edit_index))
-		{
-			MessageBox(_T("保存配置失败！请检查配置文件是否被占用！"), _T("操作失败"), MB_ICONWARNING);
-		}
-	}
+	RealTimeSaveProfile();
 }
 
 //新建
@@ -419,12 +474,12 @@ void CMainDlg::OnCommandDelete()
 {
 	int  ret;
 	int  index;
-	index = m_list1.GetSelectionMark();
-	if(m_edit_index == index)
+	if(m_list1.GetItemCount() == 1)
 	{
-		MessageBox(_T("您无法删除正在编辑的配置！"), _T("操作无效"), MB_ICONWARNING);
+		MessageBox(_T("您无法删除最后一个配置文件！"), _T("非法操作"), MB_ICONWARNING);
 		return;
 	}
+	index = m_list1.GetSelectionMark();
 	if(index >= 0)
 	{
 		ret = MessageBox(_T("您确定要删除这个配置文件吗？"), _T("确认删除"), MB_ICONQUESTION|MB_OKCANCEL);
@@ -436,6 +491,11 @@ void CMainDlg::OnCommandDelete()
 		{
 			MessageBox(_T("删除配置失败！请检查配置文件是否被占用！"), _T("操作失败"), MB_ICONWARNING);
 			return;
+		}
+		if(m_edit_index == index)
+		{
+			m_edit_index = 0;
+			EditProfile(0);
 		}
 	}
 }
